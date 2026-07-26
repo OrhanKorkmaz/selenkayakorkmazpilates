@@ -1,0 +1,15 @@
+{
+  "name": "MAKİNA · Pro — Küresel İstihbarat Haritası",
+  "short_name": "MAKİNA Pro",
+  "lang": "tr",
+  "start_url": "./makina.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0e14",
+  "theme_color": "#0a0e14",
+  "description": "Canlı deprem/uçuş/uydu istihbaratı, AI analiz (yerel Qwen), 3D küre ve gezegen keşfi — tek dosya web sürümü.",
+  "icons": [
+    {"src": "./icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "./icon-512.png", "sizes": "512x512", "type": "image/png"}
+  ]
+}

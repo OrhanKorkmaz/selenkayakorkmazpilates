@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"/>
+<meta name="theme-color" content="#0a0e14"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<title>MAKİNA · Pro — Küresel İstihbarat Haritası</title>
+<link rel="apple-touch-icon" href="icon-180.png"/>
+<link rel="manifest" href="makina.webmanifest"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+:root{
+  --bg:#0a0e14;--bg2:#0f1520;--panel:#111826;--panel2:#161f2e;--line:#22304a;
+  --text:#e6edf6;--muted:#8595ad;--dim:#5a6a82;
+  --accent:#38bdf8;--accent2:#0ea5e9;--gold:#f0b429;
+  --red:#ef4444;--orange:#f97316;--green:#22c55e;--purple:#a855f7;--pink:#ec4899;
+  --shadow:0 12px 40px rgba(0,0,0,.55);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;overflow:hidden;font-size:14px}
+button{font-family:inherit;cursor:pointer;color:inherit;border:none;background:none}
+input,select,textarea{font-family:inherit;color:inherit}
+#map,#globe{position:absolute;inset:0;width:100%;height:100%;background:var(--bg)}
+#globe{display:none}
+.leaflet-container{background:#0a0e14}
+.leaflet-bar a{background:var(--panel);color:var(--text);border-color:var(--line)}
+.leaflet-bar a:hover{background:var(--panel2)}
+
+/* Top bar */
+.topbar{position:absolute;top:0;left:0;right:0;height:56px;z-index:600;display:flex;align-items:center;gap:10px;padding:0 12px;
+  background:linear-gradient(180deg,rgba(10,14,20,.96),rgba(10,14,20,.72));backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:9px;flex-shrink:0}
+.brand .mk{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#0ea5e9,#1e3a8a);display:grid;place-items:center;font-weight:800;font-size:15px;box-shadow:0 4px 14px rgba(14,165,233,.4);letter-spacing:-1px}
+.brand b{font-size:15px;letter-spacing:.5px}
+.brand .pro{font-size:9px;font-weight:800;color:#0a0e14;background:linear-gradient(135deg,var(--gold),#f59e0b);padding:2px 6px;border-radius:6px;margin-left:2px;letter-spacing:.5px}
+.brand small{display:block;font-size:9px;color:var(--muted);margin-top:1px}
+.searchwrap{flex:1;position:relative;max-width:560px}
+.searchwrap input{width:100%;height:38px;border-radius:11px;background:var(--panel);border:1px solid var(--line);padding:0 40px 0 38px;font-size:13px;outline:none;transition:.15s}
+.searchwrap input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(56,189,248,.15)}
+.searchwrap .si{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;opacity:.7}
+.searchwrap .sk{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:9px;color:var(--dim);border:1px solid var(--line);border-radius:5px;padding:2px 5px}
+.tb-actions{display:flex;gap:6px;flex-shrink:0}
+.tb-btn{width:38px;height:38px;border-radius:11px;background:var(--panel);border:1px solid var(--line);display:grid;place-items:center;font-size:16px;transition:.15s;position:relative}
+.tb-btn:hover{background:var(--panel2);border-color:var(--accent)}
+.tb-btn.on{background:linear-gradient(135deg,var(--accent2),#1e40af);border-color:var(--accent)}
+.tb-btn .dot{position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;background:var(--red);box-shadow:0 0 8px var(--red)}
+
+/* Panels */
+.panel{position:absolute;z-index:550;background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden}
+#leftpanel{top:66px;left:12px;bottom:74px;width:320px}
+#rightpanel{top:66px;right:12px;bottom:74px;width:360px;transform:translateX(calc(100% + 24px));transition:transform .28s cubic-bezier(.3,.9,.3,1)}
+#rightpanel.open{transform:none}
+.panel-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line);flex-shrink:0}
+.panel-head h3{font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px}
+.panel-head .x{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-size:16px;color:var(--muted)}
+.panel-head .x:hover{background:var(--panel2);color:var(--text)}
+.panel-body{overflow-y:auto;flex:1;padding:10px}
+.panel-body::-webkit-scrollbar{width:7px}
+.panel-body::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+
+/* Tabs */
+.tabs{display:flex;gap:4px;padding:8px 10px 0;flex-shrink:0}
+.tab{flex:1;text-align:center;padding:8px 4px;font-size:11px;font-weight:600;color:var(--muted);border-radius:9px 9px 0 0;border-bottom:2px solid transparent}
+.tab.on{color:var(--text);background:var(--panel2);border-bottom-color:var(--accent)}
+
+/* Layer toggles */
+.layer-group{margin-bottom:6px}
+.layer-group-title{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--dim);padding:8px 6px 4px;font-weight:700}
+.layer{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;transition:.12s;font-size:12.5px}
+.layer:hover{background:var(--panel2)}
+.layer .ico{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-size:14px;background:var(--bg2);flex-shrink:0}
+.layer .nm{flex:1;line-height:1.2}
+.layer .nm small{display:block;color:var(--dim);font-size:10px;margin-top:1px}
+.layer .cnt{font-size:10px;color:var(--muted);background:var(--bg);padding:2px 6px;border-radius:6px;min-width:20px;text-align:center}
+.sw{width:38px;height:22px;border-radius:12px;background:var(--bg);border:1px solid var(--line);position:relative;flex-shrink:0;transition:.15s}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--dim);transition:.18s}
+.sw.on{background:linear-gradient(135deg,var(--accent2),#1e40af);border-color:var(--accent)}
+.sw.on::after{transform:translateX(16px);background:#fff}
+.layer.pro-lock .sw{opacity:.5}
+.badge-soon{font-size:8.5px;color:var(--gold);border:1px solid rgba(240,180,41,.4);border-radius:5px;padding:1px 4px;margin-left:4px}
+
+/* Event feed */
+.ev{display:flex;gap:10px;padding:10px;border-radius:11px;margin-bottom:6px;background:var(--panel2);border:1px solid transparent;transition:.12s;cursor:pointer}
+.ev:hover{border-color:var(--line);transform:translateX(2px)}
+.ev .ev-ico{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-size:16px;flex-shrink:0}
+.ev .ev-main{flex:1;min-width:0}
+.ev .ev-t{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev .ev-s{font-size:10.5px;color:var(--muted);margin-top:2px;display:flex;gap:8px}
+.ev .ev-mag{font-size:15px;font-weight:800;padding:0 4px}
+.chip{display:inline-block;font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:6px;letter-spacing:.3px}
+
+/* Bottom bar */
+.bottombar{position:absolute;left:12px;right:12px;bottom:12px;height:54px;z-index:560;display:flex;align-items:center;gap:14px;padding:0 16px;
+  background:linear-gradient(180deg,rgba(17,24,38,.85),rgba(15,21,32,.95));backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:14px}
+.tt-label{font-size:11px;color:var(--muted);white-space:nowrap;display:flex;align-items:center;gap:6px}
+.tt-label b{color:var(--accent);font-variant-numeric:tabular-nums}
+#tt{flex:1;-webkit-appearance:none;appearance:none;height:5px;border-radius:3px;background:var(--line);outline:none}
+#tt::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(56,189,248,.2);cursor:pointer}
+.stat{font-size:11px;color:var(--muted);white-space:nowrap}
+.stat b{color:var(--text);font-variant-numeric:tabular-nums}
+.livedot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* FABs */
+.fabs{position:absolute;right:14px;bottom:80px;z-index:560;display:flex;flex-direction:column;gap:9px}
+.fab{width:46px;height:46px;border-radius:14px;background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);display:grid;place-items:center;font-size:19px;box-shadow:var(--shadow);transition:.15s}
+.fab:hover{border-color:var(--accent);transform:scale(1.06)}
+.fab.ai{background:linear-gradient(135deg,#7c3aed,#4f46e5);border-color:#a78bfa}
+.fab.crisis{background:linear-gradient(135deg,#dc2626,#991b1b);border-color:#f87171}
+
+/* AI cards */
+.ai-msg{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;font-size:12.5px;line-height:1.55;white-space:pre-wrap}
+.ai-msg.user{background:linear-gradient(135deg,rgba(124,58,237,.18),rgba(79,70,229,.12));border-color:#6d28d9}
+.ai-msg .role{font-size:10px;font-weight:700;color:var(--accent);margin-bottom:5px;display:flex;align-items:center;gap:6px}
+.ai-msg.user .role{color:#c4b5fd}
+.think{color:var(--dim);font-style:italic;font-size:11px}
+.btn{display:inline-flex;align-items:center;gap:7px;justify-content:center;padding:10px 14px;border-radius:11px;font-size:12.5px;font-weight:600;background:var(--panel2);border:1px solid var(--line);transition:.14s;width:100%;margin-bottom:8px}
+.btn:hover{border-color:var(--accent);background:#1a2536}
+.btn.primary{background:linear-gradient(135deg,var(--accent2),#1e40af);border-color:var(--accent);color:#fff}
+.btn.gold{background:linear-gradient(135deg,var(--gold),#d97706);border-color:var(--gold);color:#111}
+.btn.grid2{width:calc(50% - 4px);margin-right:8px;display:inline-flex}
+.btn.grid2:nth-child(even){margin-right:0}
+.field{margin-bottom:12px}
+.field label{font-size:10.5px;color:var(--muted);display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.field input,.field select,.field textarea{width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12.5px;outline:none}
+.field input:focus,.field textarea:focus{border-color:var(--accent)}
+.note{font-size:10.5px;color:var(--dim);line-height:1.5;background:var(--bg2);border:1px dashed var(--line);border-radius:10px;padding:9px 11px;margin-bottom:10px}
+.note b{color:var(--muted)}
+.kpi{display:flex;gap:8px;margin-bottom:10px}
+.kpi .k{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:10px;text-align:center}
+.kpi .k b{display:block;font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
+.kpi .k small{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.risk-meter{height:8px;border-radius:5px;background:var(--bg);overflow:hidden;margin:8px 0}
+.risk-meter i{display:block;height:100%;background:linear-gradient(90deg,var(--green),var(--gold),var(--red))}
+
+/* Toast */
+#toasts{position:absolute;top:64px;left:50%;transform:translateX(-50%);z-index:900;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+.toast{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:11px;padding:11px 16px;font-size:12.5px;box-shadow:var(--shadow);max-width:90vw;animation:slidein .3s;display:flex;gap:9px;align-items:center}
+.toast.warn{border-left-color:var(--red)}
+.toast.ok{border-left-color:var(--green)}
+@keyframes slidein{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:none}}
+
+/* Planet mode */
+#planet{position:absolute;inset:0;z-index:700;background:radial-gradient(ellipse at 30% 20%,#0d1b3a,#05070d 70%);display:none;overflow-y:auto}
+#planet.on{display:block}
+.planet-nav{position:sticky;top:0;display:flex;gap:6px;padding:12px;overflow-x:auto;background:rgba(5,7,13,.8);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);z-index:2}
+.pl-chip{flex-shrink:0;padding:8px 13px;border-radius:11px;background:var(--panel);border:1px solid var(--line);font-size:12.5px;font-weight:600;white-space:nowrap}
+.pl-chip.on{background:linear-gradient(135deg,#3b82f6,#1e3a8a);border-color:#60a5fa}
+.pl-content{padding:16px;max-width:900px;margin:0 auto}
+.pl-card{background:linear-gradient(180deg,var(--panel),rgba(15,21,32,.7));border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}
+.pl-card h2{font-size:17px;margin-bottom:4px;display:flex;align-items:center;gap:9px}
+.pl-card img{width:100%;border-radius:12px;margin:10px 0;border:1px solid var(--line)}
+.pl-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}
+.pl-stat{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.pl-stat small{color:var(--muted);font-size:10px;display:block}
+.pl-stat b{font-size:14px}
+.spin{width:32px;height:32px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp 1s linear infinite;margin:20px auto}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+@media(max-width:768px){
+  #leftpanel{width:calc(100vw - 24px);top:64px;bottom:auto;max-height:44vh}
+  #rightpanel{width:calc(100vw - 24px);top:auto;bottom:74px;max-height:56vh}
+  .searchwrap .sk{display:none}
+  .brand small{display:none}
+  .fabs{bottom:76px}
+}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="globe"></div>
+<div id="planet"></div>
+<div id="toasts"></div>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="brand">
+    <div class="mk">M</div>
+    <div><b>MAKİNA<span class="pro">PRO</span></b><small>Küresel İstihbarat Haritası</small></div>
+  </div>
+  <div class="searchwrap">
+    <span class="si">🧠</span>
+    <input id="search" placeholder="Doğal dille sor: 'Türkiye'de son depremler', 'Akdeniz'deki gemiler'…" autocomplete="off"/>
+    <span class="sk">AI</span>
+  </div>
+  <div class="tb-actions">
+    <button class="tb-btn" id="btn-globe" title="3D Dünya Küresi">🌍</button>
+    <button class="tb-btn" id="btn-planet" title="Gezegen Keşif Haritası">🪐</button>
+    <button class="tb-btn" id="btn-ai" title="AI İstihbarat Analisti">🧠</button>
+    <button class="tb-btn" id="btn-settings" title="Ayarlar">⚙️</button>
+  </div>
+</div>
+
+<!-- Left panel: layers + feed -->
+<div class="panel" id="leftpanel">
+  <div class="tabs">
+    <div class="tab on" data-tab="layers">🗂️ Katmanlar</div>
+    <div class="tab" data-tab="feed">📡 Canlı Akış</div>
+  </div>
+  <div class="panel-body" id="tab-layers"></div>
+  <div class="panel-body hidden" id="tab-feed"><div style="text-align:center;color:var(--dim);padding:30px 0">Yükleniyor…</div></div>
+</div>
+
+<!-- Right panel: dynamic (details / AI / country / etc) -->
+<div class="panel" id="rightpanel">
+  <div class="panel-head"><h3 id="rp-title">Panel</h3><button class="x" id="rp-close">✕</button></div>
+  <div class="panel-body" id="rp-body"></div>
+</div>
+
+<!-- Bottom bar -->
+<div class="bottombar">
+  <div class="tt-label">⏪ <span id="tt-txt">Şimdi</span></div>
+  <input type="range" id="tt" min="0" max="24" value="0" step="1"/>
+  <div class="stat"><span class="livedot" style="display:inline-block;vertical-align:middle"></span> <b id="st-events">0</b> olay</div>
+  <div class="stat">✈️ <b id="st-flights">0</b></div>
+  <div class="stat">🛰️ <b id="st-sats">0</b></div>
+  <div class="stat" id="st-updated">—</div>
+</div>
+
+<!-- FABs -->
+<div class="fabs">
+  <button class="fab crisis" id="fab-crisis" title="Kriz Merkezi">🚨</button>
+  <button class="fab" id="fab-nearby" title="Yakınımdaki Riskler">📍</button>
+  <button class="fab" id="fab-brief" title="AI Sabah Brifingi">📰</button>
+  <button class="fab ai" id="fab-ai" title="AI Analist">🧠</button>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/satellite.js@5.0.0/dist/satellite.min.js"></script>
+<script>
+/* ============================================================
+   MAKİNA · PRO — tek dosya web istihbarat platformu
+   Yerel-öncelikli: AI özellikleri kendi bilgisayarındaki
+   Ollama/Qwen (localhost:11434) üzerinden çalışır — MAKİNA ile aynı.
+   ============================================================ */
+"use strict";
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;};
+const fmt=n=>n>=1000?(n/1000).toFixed(1)+'k':(''+n);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const kmBetween=(a,b,c,d)=>{const R=6371,r=Math.PI/180,dLa=(c-a)*r,dLo=(d-b)*r,s=Math.sin(dLa/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin(dLo/2)**2;return R*2*Math.atan2(Math.sqrt(s),Math.sqrt(1-s));};
+const ago=t=>{const s=(Date.now()-t)/1000;if(s<60)return Math.floor(s)+'sn';if(s<3600)return Math.floor(s/60)+'dk';if(s<86400)return Math.floor(s/3600)+'sa';return Math.floor(s/86400)+'g';};
+const esc=s=>(''+(s??'')).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+
+/* ---------- Persistent settings ---------- */
+const LS=(k,d)=>{try{const v=localStorage.getItem('mk_'+k);return v==null?d:JSON.parse(v);}catch(e){return d;}};
+const SS=(k,v)=>{try{localStorage.setItem('mk_'+k,JSON.stringify(v));}catch(e){}};
+
+const CFG={
+  ai:{ endpoint:LS('ai_ep','http://localhost:11434'), model:LS('ai_model','qwen2.5:7b') },
+  refreshMs:60000
+};
+
+/* ---------- Global state ---------- */
+const STATE={
+  map:null, globe:null, is3D:false,
+  events:[],                 // unified {id,type,lat,lon,time,mag,title,sub,meta}
+  byType:{},                 // type -> [events]
+  markerLayers:{},           // layerKey -> L.layerGroup
+  sats:[], satRecs:[],
+  timeOffsetH:0,
+  watches:LS('watches',[]),  // [{q,type,ts}]
+  predictions:LS('preds',[]),// AI quake predictions for scorecard
+  lastUpdate:0,
+  aiHistory:[]
+};
+
+/* ---------- Toasts + notifications ---------- */
+function toast(msg,kind='',icon='📡',ms=4200){
+  const t=el('div','toast'+(kind?' '+kind:''),`<span>${icon}</span><div>${msg}</div>`);
+  $('#toasts').appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';t.style.transition='.4s';setTimeout(()=>t.remove(),400);},ms);
+}
+function notify(title,body){
+  toast(body,'warn','🚨',6000);
+  if('Notification'in window&&Notification.permission==='granted'){
+    try{new Notification('MAKİNA · '+title,{body,icon:'icon-192.png'});}catch(e){}
+  }
+}
+
+/* ============================================================
+   LAYER DEFINITIONS  (kategori · katman)
+   status: 'live' (gerçek veri) | 'geo' (statik/coğrafi) | 'soon' (veri kaynağı bağlanacak)
+   ============================================================ */
+const LAYERS=[
+ {group:'Canlı Olaylar',items:[
+   {key:'quake', name:'Depremler', sub:'USGS · canlı', ico:'🌍', color:'#f97316', on:true,  status:'live'},
+   {key:'flight',name:'Uçuşlar', sub:'OpenSky · canlı', ico:'✈️', color:'#38bdf8', on:false, status:'live'},
+   {key:'sat',   name:'Uydular', sub:'Celestrak TLE', ico:'🛰️', color:'#a855f7', on:false, status:'live'},
+   {key:'aurora',name:'Aurora / Uzay Havası', sub:'NOAA Kp', ico:'🌌', color:'#22c55e', on:false, status:'live'},
+   {key:'volcano',name:'Volkanik / Termal', sub:'NASA EONET', ico:'🌋', color:'#dc2626', on:false, status:'live'},
+   {key:'fire',  name:'Orman Yangınları', sub:'NASA EONET', ico:'🔥', color:'#f59e0b', on:false, status:'live'},
+   {key:'storm', name:'Fırtına / Kasırga', sub:'NASA EONET', ico:'🌀', color:'#06b6d4', on:false, status:'live'},
+ ]},
+ {group:'Denizcilik & Yaptırım',items:[
+   {key:'ship',  name:'Gemiler (AIS)', sub:'AIS akışı gerekli', ico:'🚢', color:'#14b8a6', on:false, status:'soon'},
+   {key:'sanction',name:'Yaptırımlı Gemiler', sub:'OFAC × AIS/IMO', ico:'⛔', color:'#ef4444', on:false, status:'soon'},
+   {key:'dark',  name:'AIS Karartma', sub:'verici kapatan gemi', ico:'📡', color:'#f43f5e', on:false, status:'soon'},
+ ]},
+ {group:'Coğrafi Katmanlar',items:[
+   {key:'fault', name:'Fay Hatları', sub:'diri fay', ico:'〽️', color:'#eab308', on:false, status:'geo'},
+   {key:'cable', name:'Deniz Altı Kablolar', sub:'717 kablo', ico:'🔌', color:'#60a5fa', on:false, status:'geo'},
+   {key:'nuclear',name:'Nükleer / Enerji', sub:'santraller', ico:'☢️', color:'#facc15', on:false, status:'geo'},
+   {key:'radiation',name:'Radyasyon Sensörleri', sub:'Safecast µSv/h', ico:'☢️', color:'#a3e635', on:false, status:'soon'},
+   {key:'magnetic',name:'Manyetik Anomali', sub:'NOAA EMAG2', ico:'🧲', color:'#f472b6', on:false, status:'soon'},
+   {key:'ndvi', name:'Tarım & Çevre (NDVI)', sub:'NASA MODIS', ico:'🌿', color:'#4ade80', on:false, status:'soon'},
+   {key:'schumann',name:'Schumann Rezonansı', sub:'7.83 Hz', ico:'📡', color:'#c084fc', on:false, status:'soon'},
+ ]},
+];
+/* ============================================================
+   MAP
+   ============================================================ */
+function initMap(){
+  const map=L.map('map',{zoomControl:false,worldCopyJump:true,minZoom:2,maxZoom:12,attributionControl:false})
+    .setView([39,35],4);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:19}).addTo(map);
+  L.control.zoom({position:'bottomright'}).addTo(map);
+  L.control.attribution({position:'bottomleft',prefix:false}).addAttribution('© OpenStreetMap · CARTO · MAKİNA').addTo(map);
+  STATE.map=map;
+  // per-layer groups
+  LAYERS.forEach(g=>g.items.forEach(it=>{
+    STATE.markerLayers[it.key]=L.layerGroup();
+    if(it.on)STATE.markerLayers[it.key].addTo(map);
+  }));
+  map.on('moveend zoomend',()=>{ if(STATE.layerOn&&STATE.layerOn('flight')) throttleFlights(); });
+  map.on('contextmenu',e=>regionBrief(e.latlng.lat,e.latlng.lng));
+  map.on('click',e=>{ if(STATE._pick){STATE._pick(e.latlng);} });
+}
+function layerOn(k){const t=$(`.sw[data-k="${k}"]`);return t&&t.classList.contains('on');}
+STATE.layerOn=layerOn;
+
+/* ============================================================
+   UNIFIED EVENT STORE + RENDER
+   ============================================================ */
+function setEvents(type,list){
+  STATE.byType[type]=list;
+  STATE.events=Object.values(STATE.byType).flat();
+  renderLayer(type); renderFeed(); updateStats();
+}
+function timeCutoff(){ return Date.now()-STATE.timeOffsetH*3600e3; }
+function passesTime(ev){ return STATE.timeOffsetH===0 || (ev.time||0)<=timeCutoff(); }
+
+const EVENT_LAYER_KEYS=['quake','volcano','fire','storm','aurora'];
+function renderLayer(key){
+  const lg=STATE.markerLayers[key]; if(!lg)return; lg.clearLayers();
+  const def=allItems().find(i=>i.key===key); const color=def?def.color:'#38bdf8';
+  const list=(STATE.byType[key]||[]).filter(passesTime);
+  if(key==='flight'){ renderFlights(list,lg,color); return; }
+  if(key==='sat'){ renderSats(list,lg,color); return; }
+  list.forEach(ev=>{
+    const r=key==='quake'?clamp(2+(ev.mag||1)*2.2,4,22):7;
+    const m=L.circleMarker([ev.lat,ev.lon],{radius:r,color,weight:1.5,fillColor:color,fillOpacity:.35});
+    if(key==='quake'&&ev.mag>=5){ pulseRing(ev.lat,ev.lon,color,lg); }
+    m.on('click',()=>showEventDetail(ev));
+    m.bindTooltip(ev.title,{direction:'top',opacity:.9});
+    lg.addLayer(m);
+  });
+}
+function pulseRing(lat,lon,color,lg){
+  const ring=L.circleMarker([lat,lon],{radius:6,color,weight:2,fill:false,opacity:.8});
+  lg.addLayer(ring); let r=6;
+  const id=setInterval(()=>{ r+=1.4; ring.setRadius(r); ring.setStyle({opacity:Math.max(0,.8-(r-6)/40)}); if(r>46){r=6;ring.setStyle({opacity:.8});} },60);
+  ring._pid=id;
+}
+function renderFlights(list,lg,color){
+  const b=STATE.map.getBounds(); let shown=0;
+  for(const f of list){
+    if(shown>600)break; if(!b.contains([f.lat,f.lon]))continue; shown++;
+    const ic=L.divIcon({className:'',html:`<div style="transform:rotate(${f.meta.hdg||0}deg);font-size:14px;filter:drop-shadow(0 0 3px ${color})">✈️</div>`,iconSize:[16,16]});
+    const m=L.marker([f.lat,f.lon],{icon:ic}); m.on('click',()=>showEventDetail(f)); lg.addLayer(m);
+  }
+}
+function renderSats(list,lg,color){
+  list.forEach(s=>{
+    const ic=L.divIcon({className:'',html:`<div style="font-size:13px;filter:drop-shadow(0 0 4px ${color})">🛰️</div>`,iconSize:[14,14]});
+    const m=L.marker([s.lat,s.lon],{icon:ic}); m.on('click',()=>showEventDetail(s)); lg.addLayer(m);
+  });
+}
+function allItems(){return LAYERS.flatMap(g=>g.items);}
+function renderAllEventLayers(){ EVENT_LAYER_KEYS.forEach(renderLayer); }
+
+/* ============================================================
+   DATA SOURCES  (tarayıcıdan doğrudan · CORS açık · anahtarsız)
+   ============================================================ */
+async function fetchJSON(url,opt){ const r=await fetch(url,opt); if(!r.ok)throw new Error(url+' → '+r.status); return r.json(); }
+
+async function loadQuakes(){
+  try{
+    const d=await fetchJSON('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson');
+    const list=d.features.map(f=>({
+      id:'q'+f.id,type:'quake',lat:f.geometry.coordinates[1],lon:f.geometry.coordinates[0],
+      time:f.properties.time,mag:f.properties.mag,
+      title:'M'+(f.properties.mag?.toFixed(1)??'?')+' · '+f.properties.place,
+      sub:f.properties.place,meta:{depth:f.geometry.coordinates[2],url:f.properties.url,felt:f.properties.felt,tsunami:f.properties.tsunami}
+    })).filter(e=>e.mag!=null);
+    // scorecard match + M5+ alert
+    list.forEach(q=>{ if(q.mag>=5 && Date.now()-q.time<600000 && !STATE._alerted?.has(q.id)){(STATE._alerted=STATE._alerted||new Set()).add(q.id);notify('Büyük Deprem',q.title);matchPredictions(q);} });
+    setEvents('quake',list);
+  }catch(e){ console.warn(e); toast('Deprem verisi alınamadı (ağ/CORS).','warn','🌍'); }
+}
+async function loadFlights(){
+  try{
+    const d=await fetchJSON('https://opensky-network.org/api/states/all');
+    const list=(d.states||[]).filter(s=>s[5]!=null&&s[6]!=null&&!s[8]).map(s=>({
+      id:'f'+s[0],type:'flight',lat:s[6],lon:s[5],time:Date.now(),
+      title:(s[1]||s[0]).trim()+' · '+(s[2]||''),
+      sub:s[2],meta:{icao:s[0],callsign:(s[1]||'').trim(),country:s[2],alt:s[7],vel:s[9],hdg:s[10],reg:null}
+    }));
+    setEvents('flight',list);
+  }catch(e){ console.warn(e); toast('Uçuş verisi alınamadı (OpenSky limiti olabilir).','warn','✈️'); }
+}
+async function loadSats(){
+  try{
+    if(typeof satellite==='undefined'){toast('satellite.js yüklenemedi.','warn','🛰️');return;}
+    const txt=await (await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=tle')).text();
+    const lines=txt.trim().split('\n'); const recs=[];
+    for(let i=0;i+2<lines.length;i+=3){ try{recs.push({name:lines[i].trim(),rec:satellite.twoline2satrec(lines[i+1],lines[i+2])});}catch(e){} }
+    STATE.satRecs=recs; propagateSats(); setEvents('sat',STATE.sats);
+  }catch(e){ console.warn(e); toast('Uydu TLE alınamadı.','warn','🛰️'); }
+}
+function propagateSats(){
+  const now=new Date(),gmst=satellite.gstime(now); const out=[];
+  for(const s of STATE.satRecs){ try{
+    const pv=satellite.propagate(s.rec,now); if(!pv.position)continue;
+    const gd=satellite.eciToGeodetic(pv.position,gmst);
+    out.push({id:'s'+s.name,type:'sat',lat:satellite.degreesLat(gd.latitude),lon:satellite.degreesLong(gd.longitude),
+      time:Date.now(),title:'🛰️ '+s.name,sub:'yörünge',meta:{alt:Math.round(gd.height)}});
+  }catch(e){} }
+  STATE.sats=out;
+}
+async function loadEONET(){
+  try{
+    const d=await fetchJSON('https://eonet.gsfc.nasa.gov/api/v3/events?status=open&days=20');
+    const map={volcanoes:'volcano',wildfires:'fire',severeStorms:'storm'};
+    const buckets={volcano:[],fire:[],storm:[]};
+    d.events.forEach(ev=>{ const cat=ev.categories[0]?.id; const key=map[cat]; if(!key)return;
+      const g=ev.geometry[ev.geometry.length-1]; if(!g||g.type!=='Point')return;
+      buckets[key].push({id:ev.id,type:key,lat:g.coordinates[1],lon:g.coordinates[0],time:new Date(g.date).getTime(),
+        title:ev.title,sub:ev.categories[0].title,meta:{link:ev.sources?.[0]?.url}});
+    });
+    Object.entries(buckets).forEach(([k,v])=>setEvents(k,v));
+  }catch(e){ console.warn(e); }
+}
+async function loadAurora(){
+  try{
+    const d=await fetchJSON('https://services.swpc.noaa.gov/json/planetary_k_index_1m.json');
+    const last=d[d.length-1]; STATE.kp=parseFloat(last.kp_index??last.kp??0);
+    // Represent as a couple of polar markers for visibility
+    const list=[{id:'kp-n',type:'aurora',lat:67,lon:20,time:Date.now(),title:'Aurora ovali · Kp '+STATE.kp,sub:'Kuzey',meta:{kp:STATE.kp}},
+                {id:'kp-s',type:'aurora',lat:-67,lon:140,time:Date.now(),title:'Aurora ovali · Kp '+STATE.kp,sub:'Güney',meta:{kp:STATE.kp}}];
+    setEvents('aurora',list);
+  }catch(e){ console.warn(e); }
+}
+let _ftimer=null; function throttleFlights(){ clearTimeout(_ftimer); _ftimer=setTimeout(()=>renderLayer('flight'),250); }
+
+/* ============================================================
+   LAYER UI
+   ============================================================ */
+function buildLayerUI(){
+  const host=$('#tab-layers'); host.innerHTML='';
+  LAYERS.forEach(g=>{
+    const gd=el('div','layer-group'); gd.appendChild(el('div','layer-group-title',g.group));
+    g.items.forEach(it=>{
+      const soon=it.status==='soon';
+      const row=el('div','layer'+(soon?' pro-lock':''));
+      row.innerHTML=`<div class="ico" style="color:${it.color}">${it.ico}</div>
+        <div class="nm">${it.name}${soon?' <span class="badge-soon">veri bağla</span>':''}<small>${it.sub}</small></div>
+        <div class="cnt" id="cnt-${it.key}">·</div>
+        <div class="sw${it.on?' on':''}" data-k="${it.key}"></div>`;
+      row.querySelector('.sw').addEventListener('click',()=>toggleLayer(it.key,it.status));
+      gd.appendChild(row);
+    });
+    host.appendChild(gd);
+  });
+}
+const LOADERS={quake:loadQuakes,flight:loadFlights,sat:loadSats,aurora:loadAurora,volcano:loadEONET,fire:loadEONET,storm:loadEONET};
+const _loadedOnce=new Set(['quake']);
+function toggleLayer(key,status){
+  const sw=$(`.sw[data-k="${key}"]`); const on=!sw.classList.contains('on'); sw.classList.toggle('on',on);
+  const lg=STATE.markerLayers[key];
+  if(status==='soon'){
+    sw.classList.remove('on');
+    showGeoLayerInfo(key); return;
+  }
+  if(status==='geo'){ on?lg.addTo(STATE.map):STATE.map.removeLayer(lg); if(on)loadGeoLayer(key); return; }
+  if(on){ lg.addTo(STATE.map); if(LOADERS[key]&&!_loadedOnce.has(key)){_loadedOnce.add(key);toast(allItems().find(i=>i.key===key).name+' yükleniyor…','','⏳',2000);LOADERS[key]();} else renderLayer(key); }
+  else STATE.map.removeLayer(lg);
+}
+
+/* ============================================================
+   FEED + DETAIL + STATS
+   ============================================================ */
+const TYPE_META={quake:{i:'🌍',c:'#f97316'},flight:{i:'✈️',c:'#38bdf8'},sat:{i:'🛰️',c:'#a855f7'},volcano:{i:'🌋',c:'#dc2626'},fire:{i:'🔥',c:'#f59e0b'},storm:{i:'🌀',c:'#06b6d4'},aurora:{i:'🌌',c:'#22c55e'}};
+function renderFeed(){
+  const host=$('#tab-feed');
+  const list=EVENT_LAYER_KEYS.filter(layerOn).flatMap(k=>STATE.byType[k]||[]).filter(passesTime)
+    .sort((a,b)=>(b.time||0)-(a.time||0)).slice(0,60);
+  if(!list.length){host.innerHTML='<div style="text-align:center;color:var(--dim);padding:30px 0">Aktif olay yok</div>';return;}
+  host.innerHTML='';
+  list.forEach(ev=>{
+    const tm=TYPE_META[ev.type]||{i:'📍',c:'#888'};
+    const row=el('div','ev');
+    const mag=ev.type==='quake'?`<div class="ev-mag" style="color:${magColor(ev.mag)}">${ev.mag?.toFixed(1)}</div>`:'';
+    row.innerHTML=`<div class="ev-ico" style="background:${tm.c}22;color:${tm.c}">${tm.i}</div>
+      <div class="ev-main"><div class="ev-t">${esc(ev.title)}</div>
+      <div class="ev-s"><span>${ago(ev.time)} önce</span><span class="chip" style="background:${tm.c}22;color:${tm.c}">${ev.sub?esc((''+ev.sub).slice(0,22)):ev.type}</span></div></div>${mag}`;
+    row.addEventListener('click',()=>{showEventDetail(ev);STATE.map.setView([ev.lat,ev.lon],Math.max(STATE.map.getZoom(),6));});
+    host.appendChild(row);
+  });
+}
+function magColor(m){return m>=6?'#ef4444':m>=5?'#f97316':m>=4?'#f59e0b':m>=3?'#eab308':'#84cc16';}
+function updateStats(){
+  const evc=EVENT_LAYER_KEYS.filter(layerOn).flatMap(k=>STATE.byType[k]||[]).filter(passesTime).length;
+  $('#st-events').textContent=fmt(evc);
+  $('#st-flights').textContent=fmt((STATE.byType.flight||[]).length);
+  $('#st-sats').textContent=fmt((STATE.byType.sat||[]).length);
+  $('#st-updated').textContent='⟳ '+new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
+  allItems().forEach(it=>{const c=$('#cnt-'+it.key);if(c)c.textContent=(STATE.byType[it.key]||[]).length||'·';});
+}
+function openRight(title,html){ $('#rp-title').innerHTML=title; $('#rp-body').innerHTML=html; $('#rightpanel').classList.add('open'); return $('#rp-body'); }
+function showEventDetail(ev){
+  const tm=TYPE_META[ev.type]||{i:'📍',c:'#888'}; let rows='';
+  const R=(k,v)=>v!=null&&v!==''?`<div class="pl-stat"><small>${k}</small><b>${esc(v)}</b></div>`:'';
+  if(ev.type==='quake')rows=R('Büyüklük','M'+ev.mag?.toFixed(1))+R('Derinlik',ev.meta.depth+' km')+R('Hisseden',ev.meta.felt||'—')+R('Tsunami',ev.meta.tsunami?'⚠️ Var':'Yok');
+  else if(ev.type==='flight')rows=R('Çağrı',ev.meta.callsign||'—')+R('Ülke',ev.meta.country)+R('İrtifa',ev.meta.alt?Math.round(ev.meta.alt)+' m':'—')+R('Hız',ev.meta.vel?Math.round(ev.meta.vel*3.6)+' km/s':'—')+R('Yön',ev.meta.hdg?Math.round(ev.meta.hdg)+'°':'—')+R('ICAO24',ev.meta.icao);
+  else if(ev.type==='sat')rows=R('İrtifa',ev.meta.alt+' km')+R('Konum',ev.lat.toFixed(2)+', '+ev.lon.toFixed(2));
+  else rows=R('Tür',ev.sub)+R('Konum',ev.lat.toFixed(2)+', '+ev.lon.toFixed(2));
+  const link=ev.meta?.url||ev.meta?.link;
+  openRight(`${tm.i} Olay Detayı`,
+    `<div class="pl-card" style="margin:0"><h2 style="font-size:15px">${esc(ev.title)}</h2>
+     <div style="color:var(--muted);font-size:11px">${ago(ev.time)} önce · ${ev.lat.toFixed(3)}, ${ev.lon.toFixed(3)}</div>
+     <div class="pl-grid">${rows}</div>
+     ${link?`<a class="btn" style="margin-top:12px;text-decoration:none" href="${link}" target="_blank">🔗 Kaynağı aç</a>`:''}
+     <button class="btn primary" style="margin-top:8px" onclick="aiBriefEvent('${ev.id}')">🧠 AI ile yorumla</button>
+     <button class="btn" onclick="crisisAt(${ev.lat},${ev.lon},'${esc(ev.title).replace(/'/g,'')}')">🚨 Kriz Merkezi (500km)</button>
+     </div>`);
+}
+
+/* ============================================================
+   TIME TRAVEL · CSV · GEO LAYERS
+   ============================================================ */
+function initTimeTravel(){
+  $('#tt').addEventListener('input',e=>{
+    STATE.timeOffsetH=+e.target.value;
+    $('#tt-txt').textContent=STATE.timeOffsetH===0?'Şimdi':STATE.timeOffsetH+' saat önce';
+    renderAllEventLayers(); renderFeed(); updateStats();
+  });
+}
+function exportCSV(){
+  const rows=[['type','title','lat','lon','time_iso','magnitude','sub']];
+  STATE.events.filter(passesTime).forEach(e=>rows.push([e.type,`"${(''+e.title).replace(/"/g,'""')}"`,e.lat,e.lon,new Date(e.time).toISOString(),e.mag??'',`"${(''+(e.sub||'')).replace(/"/g,'""')}"`]));
+  const blob=new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'});
+  const a=el('a');a.href=URL.createObjectURL(blob);a.download='makina_veri_'+Date.now()+'.csv';a.click();
+  toast('CSV indirildi · '+(rows.length-1)+' kayıt','ok','📥');
+}
+// Small bundled geo layers (örnek). Gerçek 19+ katman aynı desenle GeoJSON URL'sinden beslenir.
+const GEO_DATA={
+  fault:{note:'Diri fay hatları',pts:[[40.7,30.0,'Kuzey Anadolu Fayı'],[38.5,38.9,'Doğu Anadolu Fayı'],[37.8,29.1,'Batı Anadolu grabenleri'],[35.7,-118,'San Andreas']]},
+  nuclear:{note:'Nükleer / enerji tesisleri',pts:[[36.14,36.16,'Akkuyu NGS (inşa)'],[51.4,-0.9,'—'],[35.7,140.9,'Fukushima']]},
+  cable:{note:'Deniz altı kablo düğümleri',pts:[[41.0,29.0,'İstanbul landing'],[1.29,103.85,'Singapur hub'],[40.7,-74,'NY landing']]}
+};
+function loadGeoLayer(key){
+  const lg=STATE.markerLayers[key]; lg.clearLayers(); const d=GEO_DATA[key]; const def=allItems().find(i=>i.key===key);
+  if(!d)return;
+  d.pts.forEach(p=>{ const m=L.circleMarker([p[0],p[1]],{radius:6,color:def.color,weight:2,fillOpacity:.4,fillColor:def.color});
+    m.bindTooltip(def.ico+' '+p[2],{direction:'top'}); lg.addLayer(m); });
+  toast(def.name+' · örnek düğümler yüklendi','','🗂️',2500);
+}
+function showGeoLayerInfo(key){
+  const it=allItems().find(i=>i.key===key);
+  const SRC={
+    ship:'AIS akışı (aisstream.io / GFW API) — WebSocket anahtarı gerekli. Backend köprüsü ile bağlanır.',
+    sanction:'OFAC SDN listesi (~1.500 gemi) × canlı AIS · IMO numarasıyla eşleştirme. AIS akışı + OFAC XML gerekir.',
+    dark:'AIS boşluk tespiti — geminin son görülme + sinyal kaybı süresi. AIS geçmişi gerekir.',
+    radiation:'Safecast API (api.safecast.org) — CORS proxy / backend köprüsü gerekir.',
+    magnetic:'NOAA EMAG2 raster (~4 km) — tile sunucusu / GeoTIFF köprüsü gerekir.',
+    ndvi:'NASA MODIS NDVI & LST — GIBS WMTS tile katmanı olarak eklenir.',
+    schumann:'Schumann 7.83 Hz istasyon beslemesi (Tomsk/HeartMath) — backend köprüsü.'
+  };
+  openRight(`${it.ico} ${it.name}`,
+    `<div class="note"><b>Durum:</b> Bu katmanın canlı veri kaynağı bir köprü gerektirir (tarayıcıdan doğrudan CORS/anahtar engeli).</div>
+     <div class="pl-card" style="margin:0"><b style="font-size:12px">Veri kaynağı</b><p style="color:var(--muted);font-size:12px;margin-top:6px;line-height:1.6">${SRC[key]||it.sub}</p>
+     <div class="note" style="margin:12px 0 0"><b>Not:</b> MAKİNA masaüstü sürümünde bu köprü <code>osiris/</code> Node backend'i ile gelir. Web sürümünde aynı uç noktaya bağlanmak için Ayarlar → Backend URL girin.</div></div>`);
+}
+
+/* ============================================================
+   AI KATMANI — yerel Ollama / Qwen (localhost:11434), MAKİNA ile aynı
+   ============================================================ */
+const AI_SYS='Sen MAKİNA\'nın kıdemli istihbarat analistisin. Türkçe, kısa ve net yaz. SADECE sana verilen canlı veriye dayan; genel bilgiden uydurma. Örüntüleri yakala (deprem kümeleri, çatışma yoğunlaşması, eşzamanlı sinyaller). Veri yetersizse "yeterli veri yok" de, zorlama yorum yapma. Madde işaretleri ve kısa başlıklar kullan.';
+function aiEndpointNote(){
+  if(location.protocol==='https:'&&CFG.ai.endpoint.startsWith('http://'))
+    return 'Sayfa HTTPS, AI uç noktası HTTP (localhost) → tarayıcı "karışık içerik" nedeniyle engelleyebilir. Uygulamayı <b>http://localhost</b> üzerinden açın (MAKİNA gibi) veya Ayarlar\'dan HTTPS uç nokta girin.';
+  return '';
+}
+async function ai(prompt,system){
+  const ep=CFG.ai.endpoint.replace(/\/+$/,'');
+  const body={model:CFG.ai.model,stream:false,messages:[{role:'system',content:system||AI_SYS},{role:'user',content:prompt}]};
+  const r=await fetch(ep+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  const d=await r.json(); return (d.message&&d.message.content)||d.response||'(boş yanıt)';
+}
+function aiErrorHtml(e){
+  return `<div class="note warn" style="border-color:var(--red)"><b>AI\'ya ulaşılamadı.</b> (${esc(e.message||e)})<br><br>
+   Kontrol listesi:<br>• Ollama çalışıyor mu? <code>ollama serve</code><br>• Model var mı? <code>ollama pull ${esc(CFG.ai.model)}</code><br>
+   • Tarayıcı erişimi için: <code>OLLAMA_ORIGINS=*</code> ile Ollama\'yı başlat<br>
+   ${aiEndpointNote()?'• '+aiEndpointNote():''}<br><br>Uç nokta: <code>${esc(CFG.ai.endpoint)}</code> · Ayarlar\'dan değiştirebilirsiniz.</div>`;
+}
+async function aiInto(node,prompt,system,label){
+  node.innerHTML=`<div class="ai-msg"><div class="role">🧠 ${label||'MAKİNA Analisti'}</div><div class="think"><span class="spin" style="width:16px;height:16px;display:inline-block;margin:0 8px 0 0;vertical-align:middle"></span>düşünüyor…</div></div>`;
+  try{ const out=await ai(prompt,system); node.innerHTML=`<div class="ai-msg"><div class="role">🧠 ${label||'MAKİNA Analisti'}</div>${esc(out)}</div>`; return out; }
+  catch(e){ node.innerHTML=aiErrorHtml(e); return null; }
+}
+function visibleEvents(){ const b=STATE.map.getBounds(); return EVENT_LAYER_KEYS.filter(layerOn).flatMap(k=>STATE.byType[k]||[]).filter(e=>passesTime(e)&&b.contains([e.lat,e.lon])); }
+function eventsText(list,max=45){ return list.slice(0,max).map(e=>`- [${e.type}] ${e.title} @(${e.lat.toFixed(2)},${e.lon.toFixed(2)}) ${ago(e.time)} önce`).join('\n')||'(veri yok)'; }
+
+/* --- AI İstihbarat Analisti paneli --- */
+function aiPanel(){
+  const b=openRight('🧠 AI İstihbarat Analisti',
+    `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
+       <button class="btn" style="margin:0" onclick="askDataPanel()">🔎 Verimize Sor</button>
+       <button class="btn" style="margin:0" onclick="countryPanel()">🗂️ Ülke Paneli</button>
+       <button class="btn" style="margin:0" onclick="watchPanel()">👁 İzlemeye Al</button>
+       <button class="btn" style="margin:0" onclick="morningBrief()">📰 Sabah Brifingi</button></div>
+     <button class="btn primary" onclick="aiSummarizeVisible()">📊 Görünen olayları analiz et</button>
+     <div style="display:flex;gap:8px"><button class="btn grid2" onclick="addPrediction()">🎯 Öngörü kaydet</button><button class="btn grid2" onclick="scorecardPanel()">📈 İsabet Karnesi</button></div>
+     <div class="field" style="margin-top:6px"><label>Soru sor (bağlam: haritadaki canlı veri)</label>
+       <textarea id="ai-q" rows="2" placeholder="Örn: Ege'de deprem kümesi var mı? En kritik 3 gelişme ne?"></textarea></div>
+     <button class="btn" onclick="aiAsk()">Gönder →</button>
+     <div id="ai-out" style="margin-top:12px"></div>`);
+  const note=aiEndpointNote(); if(note)b.insertAdjacentHTML('afterbegin',`<div class="note">${note}</div>`);
+}
+function aiSummarizeVisible(){
+  const list=visibleEvents(); const out=$('#ai-out');
+  if(!list.length){out.innerHTML='<div class="note">Haritada görünür (açık katman) olay yok. Katman açın veya haritayı kaydırın.</div>';return;}
+  const prompt=`Aşağıda haritada ŞU AN görünen ${list.length} canlı olay var. Örüntüleri (deprem kümesi, coğrafi yoğunlaşma, eşzamanlı sinyaller) yakala ve en kritik 3 gelişmeyi özetle:\n\n${eventsText(list)}`;
+  aiInto(out,prompt);
+}
+function aiAsk(){ const q=$('#ai-q').value.trim(); if(!q)return; const list=visibleEvents();
+  aiInto($('#ai-out'),`Kullanıcı sorusu: "${q}"\n\nHaritadaki güncel veri:\n${eventsText(list)}\n\nSadece bu veriye dayanarak yanıtla.`);
+}
+window.aiBriefEvent=function(id){ const ev=STATE.events.find(e=>e.id===id); if(!ev)return; aiPanel();
+  setTimeout(()=>aiInto($('#ai-out'),`Şu olayı istihbarat açısından yorumla ve 300 km çevresindeki olası etkileşimleri değerlendir:\n${ev.title} @(${ev.lat},${ev.lon}), ${ago(ev.time)} önce.\nÇevredeki olaylar:\n${eventsText(STATE.events.filter(e=>kmBetween(ev.lat,ev.lon,e.lat,e.lon)<300))}`),60);
+};
+
+/* --- Kendi Verimize Soru Sor --- */
+function askDataPanel(){
+  openRight('🔎 Kendi Verimize Soru Sor',
+    `<div class="note">Yanıt yalnızca <b>MAKİNA\'nın kendi topladığı</b> olay kayıtlarından üretilir — genel bilgiden değil. Veri yetersizse AI bunu açıkça söyler.</div>
+     <div class="kpi"><div class="k"><b>${STATE.events.length}</b><small>toplam kayıt</small></div><div class="k"><b>${EVENT_LAYER_KEYS.filter(k=>(STATE.byType[k]||[]).length).length}</b><small>aktif tür</small></div></div>
+     <div class="field"><label>Soru</label><textarea id="ad-q" rows="3" placeholder="Örn: Son veride hangi bölgelerde birden fazla bağımsız sinyal çakışıyor?"></textarea></div>
+     <button class="btn primary" onclick="askDataRun()">Verimize sor →</button><div id="ad-out" style="margin-top:12px"></div>`);
+}
+function datasetDigest(){
+  const byType={}; STATE.events.forEach(e=>{(byType[e.type]=byType[e.type]||[]).push(e);});
+  let s='VERİ ÖZETİ (MAKİNA canlı kayıtları):\n';
+  for(const[t,arr]of Object.entries(byType)){ s+=`\n## ${t} (${arr.length})\n`+arr.slice(0,25).map(e=>`- ${e.title} @(${e.lat.toFixed(1)},${e.lon.toFixed(1)})`).join('\n'); }
+  return s;
+}
+function askDataRun(){ const q=$('#ad-q').value.trim(); if(!q)return;
+  const sys=AI_SYS+' ÇOK ÖNEMLİ: Sadece aşağıdaki VERİ ÖZETİ içindeki kayıtları kullan. Dışarıdan bilgi ekleme. Kayıtlar soruyu yanıtlamaya yetmiyorsa "Bu soruyu yanıtlayacak yeterli veri yok" de.';
+  aiInto($('#ad-out'),`${datasetDigest()}\n\nSORU: ${q}`,sys);
+}
+
+/* --- Yakınımdaki Riskler (300 km) --- */
+function nearbyRisks(){
+  const out=openRight('📍 Yakınımdaki Riskler','<div class="note">Konum alınıyor…</div>');
+  if(!navigator.geolocation){out.innerHTML='<div class="note warn">Tarayıcı konum desteklemiyor.</div>';return;}
+  navigator.geolocation.getCurrentPosition(p=>{
+    const{latitude:la,longitude:lo}=p.coords; STATE.map.setView([la,lo],6);
+    L.circle([la,lo],{radius:300000,color:'#38bdf8',weight:1,fillOpacity:.05}).addTo(STATE.map);
+    const near=STATE.events.filter(e=>passesTime(e)&&kmBetween(la,lo,e.lat,e.lon)<300).sort((a,b)=>kmBetween(la,lo,a.lat,a.lon)-kmBetween(la,lo,b.lat,b.lon));
+    out.innerHTML=`<div class="kpi"><div class="k"><b>${near.length}</b><small>300 km olay</small></div><div class="k"><b>${near.filter(e=>e.type==='quake'&&e.mag>=4).length}</b><small>M4+ deprem</small></div></div><div id="nb-out"></div>`;
+    aiInto($('#nb-out'),`Konumum (${la.toFixed(2)},${lo.toFixed(2)}). 300 km çevremdeki canlı olaylar:\n${eventsText(near)}\n\nBana özel kısa bir kişisel risk raporu yaz: ne kadar acil, ne yapmalıyım.`,null,'Kişisel Risk Raporu');
+  },e=>{out.innerHTML='<div class="note warn">Konum alınamadı: '+esc(e.message)+'</div>';},{timeout:8000});
+}
+
+/* --- Kriz Merkezi (500 km) --- */
+window.crisisAt=function(lat,lon,title){
+  STATE.map.setView([lat,lon],5);
+  L.circle([lat,lon],{radius:500000,color:'#ef4444',weight:1.5,fillOpacity:.06}).addTo(STATE.map);
+  const near=STATE.events.filter(e=>passesTime(e)&&kmBetween(lat,lon,e.lat,e.lon)<500);
+  const out=openRight('🚨 Kriz Merkezi',
+    `<div class="note warn" style="border-color:var(--red)"><b>Odak:</b> ${esc(title||'Seçili bölge')}<br>500 km yarıçap · ${near.length} olay</div>
+     <div class="kpi"><div class="k"><b style="color:var(--red)">${near.filter(e=>e.type==='quake').length}</b><small>deprem</small></div><div class="k"><b style="color:var(--orange)">${near.filter(e=>e.type==='fire').length}</b><small>yangın</small></div><div class="k"><b style="color:var(--purple)">${near.filter(e=>e.type==='storm'||e.type==='volcano').length}</b><small>afet</small></div></div>
+     <div class="note">📷 Bölge kameraları: canlı CCTV köprüsü (backend) bağlandığında burada listelenir.</div>
+     <div id="cr-out"></div>`);
+  aiInto($('#cr-out'),`KRİZ DEĞERLENDİRMESİ. Odak: ${title} (${lat.toFixed(2)},${lon.toFixed(2)}). 500 km içindeki olaylar:\n${eventsText(near)}\n\nDurum ne kadar ciddi? Kısa kriz değerlendirmesi + izlenmesi gereken 3 şey.`,null,'Kriz Değerlendirmesi');
+};
+function crisisAuto(){ const q=[...(STATE.byType.quake||[])].filter(passesTime).sort((a,b)=>b.mag-a.mag)[0];
+  if(!q){toast('Şu an belirgin bir kriz odağı yok.','','🚨');return;} crisisAt(q.lat,q.lon,q.title); }
+
+/* --- Bölge brifingi (haritada sağ tık) --- */
+function regionBrief(lat,lon){
+  const near=STATE.events.filter(e=>passesTime(e)&&kmBetween(lat,lon,e.lat,e.lon)<250);
+  const out=openRight('🗺️ Bölge Brifingi',`<div class="note">${lat.toFixed(3)}, ${lon.toFixed(3)} · 250 km · ${near.length} olay</div><div id="rb-out"></div>`);
+  if(!near.length){$('#rb-out').innerHTML='<div class="note">Bu bölgede kayıtlı canlı olay yok.</div>';return;}
+  aiInto($('#rb-out'),`Bu bölgenin (${lat.toFixed(2)},${lon.toFixed(2)}) son durumunu özetle:\n${eventsText(near)}`);
+}
+
+/* --- İsabet Karnesi + öngörüler --- */
+function addPrediction(){
+  const list=visibleEvents(); const out=$('#ai-out')||openRight('🎯 Öngörü','<div id="ai-out"></div>')&&$('#ai-out');
+  aiInto(out,`Görünen sismik veriye bakarak İLERİYE DÖNÜK bir deprem-risk öngörüsü yaz. Formatı KESİN şöyle olsun (tek satır):\nÖNGÖRÜ | bölge_adı | merkez_lat,merkez_lon | yarıçap_km | tahmini_büyüklük_esiği | gerekçe\nVeri:\n${eventsText(list)}`,AI_SYS,'Öngörü').then(txt=>{
+    if(!txt)return; const line=(txt.split('\n').find(l=>l.includes('ÖNGÖRÜ')||l.includes('|'))||txt);
+    const p={id:'p'+Date.now(),raw:line,ts:Date.now(),matched:null};
+    const m=line.match(/(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)/); if(m){p.lat=+m[1];p.lon=+m[2];}
+    const rk=line.match(/(\d{2,4})\s*km/); p.radius=rk?+rk[1]:300;
+    const mg=line.match(/M?\s*(\d\.?\d?)\s*\+?/); p.thr=mg?+mg[1]:4.5;
+    STATE.predictions.unshift(p); SS('preds',STATE.predictions.slice(0,50)); toast('Öngörü kaydedildi · İsabet Karnesi izliyor','ok','🎯');
+  });
+}
+function matchPredictions(q){ let hit=false;
+  STATE.predictions.forEach(p=>{ if(p.matched||p.lat==null)return;
+    if(kmBetween(p.lat,p.lon,q.lat,q.lon)<=(p.radius||300)&&q.mag>=(p.thr||4)&&q.time>p.ts){ p.matched={title:q.title,dt:q.time,delayH:((q.time-p.ts)/3600e3).toFixed(1)}; hit=true; } });
+  if(hit){SS('preds',STATE.predictions);notify('İsabet!','Bir AI öngörüsü gerçekleşti · İsabet Karnesi güncellendi');}
+}
+function scorecardPanel(){
+  const done=STATE.predictions.filter(p=>p.matched), open=STATE.predictions.filter(p=>!p.matched);
+  const rate=STATE.predictions.length?Math.round(done.length/STATE.predictions.length*100):0;
+  openRight('📈 İsabet Karnesi',
+    `<div class="note">AI\'ın ileriye dönük öngörüleri sonraki gerçek depremlerle otomatik eşleştirilir — şeffaf isabet oranı.</div>
+     <div class="kpi"><div class="k"><b style="color:var(--green)">${done.length}</b><small>isabet</small></div><div class="k"><b>${open.length}</b><small>bekleyen</small></div><div class="k"><b style="color:var(--gold)">%${rate}</b><small>oran</small></div></div>
+     ${STATE.predictions.length?'':'<div class="note">Henüz öngörü yok. AI panelinden "🎯 Öngörü kaydet" ile başlayın.</div>'}
+     ${STATE.predictions.map(p=>`<div class="pl-card" style="margin-bottom:8px;padding:11px"><div style="font-size:11px;color:var(--muted)">${new Date(p.ts).toLocaleString('tr-TR')}</div>
+        <div style="font-size:12px;margin:4px 0">${esc(p.raw).slice(0,150)}</div>
+        ${p.matched?`<div class="chip" style="background:#22c55e22;color:#22c55e">✓ İSABET · ${p.matched.delayH} sa sonra · ${esc(p.matched.title).slice(0,40)}</div>`:'<div class="chip" style="background:#8595ad22;color:#8595ad">⏳ izleniyor</div>'}</div>`).join('')}`);
+}
+
+/* --- Ülke Paneli · AI --- */
+const COUNTRIES={'Türkiye':[36,26,42,45],'Japonya':[30,129,46,146],'ABD':[24,-125,49,-66],'İran':[25,44,40,63],'Yunanistan':[34,19,42,28],'İtalya':[36,6,47,19],'Suriye':[32,35,37,42],'Ukrayna':[44,22,53,40],'Rusya':[41,19,77,180],'Endonezya':[-11,95,6,141],'Şili':[-56,-76,-17,-66],'Meksika':[14,-118,33,-86],'Almanya':[47,5,55,15],'Fransa':[41,-5,51,10],'İngiltere':[49,-8,61,2],'Çin':[18,73,54,135],'Hindistan':[6,68,36,98],'İsrail':[29,34,34,36]};
+function countryStats(bb){ const [s,w,n,e]=bb; const inBox=STATE.events.filter(x=>passesTime(x)&&x.lat>=s&&x.lat<=n&&x.lon>=w&&x.lon<=e);
+  const q=inBox.filter(x=>x.type==='quake'),f=inBox.filter(x=>x.type==='fire'),st=inBox.filter(x=>x.type==='storm'),v=inBox.filter(x=>x.type==='volcano');
+  const score=clamp(Math.round(q.reduce((a,x)=>a+Math.max(0,x.mag)**2,0)*1.2+f.length*4+st.length*5+v.length*7),0,100);
+  return{inBox,q,f,st,v,score}; }
+function countryPanel(preName){
+  const opts=Object.keys(COUNTRIES).map(c=>`<option${c===preName?' selected':''}>${c}</option>`).join('');
+  openRight('🗂️ Ülke Paneli · AI',`<div class="field"><label>Ülke</label><select id="cp-sel" onchange="openCountry(this.value)">${opts}</select></div><div id="cp-body"></div>`);
+  openCountry(preName||Object.keys(COUNTRIES)[0]);
+}
+window.openCountry=function(name){ const bb=COUNTRIES[name]; if(!bb)return; const s=countryStats(bb);
+  $('#cp-body').innerHTML=`<div class="pl-card" style="margin:0"><h2 style="font-size:16px">${esc(name)}</h2>
+    <div style="font-size:11px;color:var(--muted)">Canlı risk skoru</div><div class="risk-meter"><i style="width:${s.score}%"></i></div>
+    <div style="text-align:right;font-weight:800;color:${s.score>66?'#ef4444':s.score>33?'#f0b429':'#22c55e'}">${s.score}/100</div>
+    <div class="pl-grid"><div class="pl-stat"><small>🌍 Deprem</small><b>${s.q.length}</b></div><div class="pl-stat"><small>🔥 Yangın</small><b>${s.f.length}</b></div><div class="pl-stat"><small>🌀 Fırtına</small><b>${s.st.length}</b></div><div class="pl-stat"><small>🌋 Volkan</small><b>${s.v.length}</b></div></div>
+    <button class="btn primary" style="margin-top:12px" onclick="countryAI('${esc(name)}')">🧠 AI ülke analizi</button>
+    <div id="cp-ai"></div></div>`;
+  const [s2,w,n,e]=bb; STATE.map.fitBounds([[s2,w],[n,e]]);
+};
+window.countryAI=function(name){ const bb=COUNTRIES[name]; const s=countryStats(bb);
+  aiInto($('#cp-ai'),`${name} için istihbarat brifingi hazırla. Canlı veriler:\n- Deprem: ${s.q.length} (${s.q.slice(0,8).map(x=>'M'+x.mag).join(', ')||'yok'})\n- Yangın: ${s.f.length}, Fırtına: ${s.st.length}, Volkan: ${s.v.length}\n- Risk skoru: ${s.score}/100\n\nKısa brifing + "izlenmesi gerekenler" listesi ver.`,null,name+' Brifingi');
+};
+
+/* --- AI Sabah Brifingi (TTS + PDF) --- */
+function morningBrief(){
+  const top=[...STATE.events].filter(passesTime).sort((a,b)=>(b.type==='quake'?(b.mag||0):1)-(a.type==='quake'?(a.mag||0):1)).slice(0,20);
+  const watched=STATE.watches.map(w=>w.q).join(', ')||'(izleme yok)';
+  const out=openRight('📰 AI Sabah Brifingi',
+    `<div class="note">İzlediğin konular öne alınır: <b>${esc(watched)}</b></div>
+     <div style="display:flex;gap:8px"><button class="btn grid2" onclick="briefSpeak()">🔊 Sesli dinle</button><button class="btn grid2" onclick="briefPDF()">📄 PDF indir</button></div>
+     <div id="mb-out"></div>`);
+  aiInto($('#mb-out'),`Kişisel dünya sabah brifingi yaz. Kullanıcının izlediği konular (öne al): ${watched}.\nGüncel önemli olaylar:\n${eventsText(top)}\n\n3-5 kısa başlık halinde, en kritik olanı en üste koy.`,null,'Sabah Brifingi').then(t=>STATE._brief=t);
+}
+window.briefSpeak=function(){ if(!STATE._brief){toast('Önce brifing oluşsun.','','📰');return;} const u=new SpeechSynthesisUtterance(STATE._brief.replace(/[#*•]/g,'')); u.lang='tr-TR'; speechSynthesis.cancel(); speechSynthesis.speak(u); toast('🔊 Sesli okuma başladı','ok','🔊'); };
+window.briefPDF=function(){ if(!STATE._brief){toast('Önce brifing oluşsun.','','📰');return;}
+  const w=window.open('','_blank'); if(!w){toast('Açılır pencere engellendi.','warn');return;}
+  w.document.write(`<html><head><title>MAKİNA Sabah Brifingi</title><meta charset="utf-8"><style>body{font-family:system-ui;max-width:640px;margin:40px auto;padding:0 20px;line-height:1.7;color:#111}h1{color:#0ea5e9}small{color:#666}pre{white-space:pre-wrap;font-family:inherit;font-size:15px}</style></head><body><h1>📰 MAKİNA · Sabah Brifingi</h1><small>${new Date().toLocaleString('tr-TR')}</small><pre>${esc(STATE._brief)}</pre></body></html>`);
+  w.document.close(); setTimeout(()=>w.print(),400);
+};
+
+/* --- İzlemeye Al (AI Agent) --- */
+function watchAdd(q){ q=(q||'').trim(); if(!q)return; STATE.watches.unshift({q,ts:Date.now()}); SS('watches',STATE.watches.slice(0,30)); toast('👁 İzlemeye alındı: '+q,'ok','👁'); }
+function watchPanel(){
+  openRight('👁 AI Agent · İzleme',
+    `<div class="note">Ülke / şehir / konu izle ("Türkiye", "M5+ deprem"). Yeni kritik olayda anında bildirim alırsın.</div>
+     <div class="field"><label>Yeni izleme</label><input id="w-q" placeholder="örn: Türkiye  ·  M5+ deprem  ·  Ege"/></div>
+     <button class="btn primary" onclick="watchAdd($('#w-q').value);watchPanel()">➕ İzlemeye al</button>
+     <div style="margin-top:12px">${STATE.watches.length?STATE.watches.map((w,i)=>`<div class="ev"><div class="ev-ico" style="background:#38bdf822;color:#38bdf8">👁</div><div class="ev-main"><div class="ev-t">${esc(w.q)}</div><div class="ev-s">${new Date(w.ts).toLocaleDateString('tr-TR')}</div></div><button class="x" onclick="STATE.watches.splice(${i},1);SS('watches',STATE.watches);watchPanel()">✕</button></div>`).join(''):'<div class="note">Henüz izleme yok.</div>'}</div>`);
+}
+function checkWatches(q){ // q: new critical quake
+  STATE.watches.forEach(w=>{ const t=w.q.toLowerCase();
+    const hitMag=/m\s*(\d)/.exec(t); const magThr=hitMag?+hitMag[1]:0;
+    const place=(q.sub||'').toLowerCase();
+    if((magThr&&q.mag>=magThr)||(t.length>2&&place.includes(t.replace(/m\d\+?/,'').trim()))){ notify('İzleme: '+w.q,q.title); } });
+}
+
+/* --- Ayarlar --- */
+function settingsPanel(){
+  openRight('⚙️ Ayarlar',
+    `<div class="field"><label>AI uç noktası (Ollama)</label><input id="s-ep" value="${esc(CFG.ai.endpoint)}"/></div>
+     <div class="field"><label>Model</label><input id="s-model" value="${esc(CFG.ai.model)}"/></div>
+     <button class="btn primary" onclick="saveSettings()">Kaydet</button>
+     <button class="btn" onclick="testAI()">🔌 AI bağlantısını test et</button>
+     <div id="s-test"></div>
+     <div class="note" style="margin-top:12px">MAKİNA masaüstü sürümü Qwen 2.5\'i yerelde (localhost:11434) çalıştırır. Bu web sürümü aynı uç noktaya bağlanır — verin bilgisayarından çıkmaz. Tarayıcı erişimi için Ollama\'yı <code>OLLAMA_ORIGINS=*</code> ile başlatın.</div>
+     <div class="note">📥 <b>Veri dışa aktarma</b></div><button class="btn" onclick="exportCSV()">📥 Görünen veriyi CSV indir</button>`);
+}
+window.saveSettings=function(){ CFG.ai.endpoint=$('#s-ep').value.trim()||CFG.ai.endpoint; CFG.ai.model=$('#s-model').value.trim()||CFG.ai.model; SS('ai_ep',CFG.ai.endpoint); SS('ai_model',CFG.ai.model); toast('Ayarlar kaydedildi','ok','⚙️'); };
+window.testAI=function(){ aiInto($('#s-test'),'Bağlantı testi: sadece "MAKİNA AI hazır." yaz.','Sen bir test botusun.','Test'); };
+
+/* --- Doğal dil arama / komut --- */
+const GAZ={'türkiye':[39,35,5],'istanbul':[41,29,9],'ankara':[39.9,32.8,9],'izmir':[38.4,27.1,9],'akdeniz':[35,20,5],'ege':[38,25,7],'karadeniz':[43,34,6],'japonya':[36,138,5],'kaliforniya':[37,-119,6],'avrupa':[50,10,4],'ortadoğu':[31,40,5],'suriye':[35,38,6],'ukrayna':[49,32,5],'abd':[39,-98,4],'endonezya':[-2,118,5]};
+function runSearch(q){ q=q.trim(); if(!q)return; const t=q.toLowerCase();
+  // 1) layer keyword toggles
+  const kw={'deprem':'quake','uçuş':'flight','uçak':'flight','uydu':'sat','yangın':'fire','fırtına':'storm','volkan':'volcano','aurora':'aurora'};
+  let toggled=false; for(const[k,v]of Object.entries(kw)){ if(t.includes(k)){ const sw=$(`.sw[data-k="${v}"]`); if(sw&&!sw.classList.contains('on')){toggleLayer(v,allItems().find(i=>i.key===v).status);} toggled=true; } }
+  // 2) place zoom
+  let placed=false; for(const[k,v]of Object.entries(GAZ)){ if(t.includes(k)){ STATE.map.setView([v[0],v[1]],v[2]); placed=true; break; } }
+  // 3) country panel
+  const cn=Object.keys(COUNTRIES).find(c=>t.includes(c.toLowerCase()));
+  if(toggled||placed){ toast('Harita yapılandırıldı: '+q,'ok','🧠',2500); }
+  // 4) AI answer with context
+  aiPanel(); const list=visibleEvents();
+  setTimeout(()=>aiInto($('#ai-out'),`Kullanıcı doğal dil isteği: "${q}"\nHaritayı buna göre değerlendir. Güncel görünür veri:\n${eventsText(list)}\n\nİsteği yanıtla; gerekiyorsa hangi katman/bölgeye bakılmalı söyle.`),80);
+}
+
+/* ============================================================
+   3D DÜNYA KÜRESİ  (globe.gl · tembel yükleme)
+   ============================================================ */
+function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('yüklenemedi'));document.head.appendChild(s);});}
+async function toggle3D(){
+  STATE.is3D=!STATE.is3D; $('#btn-globe').classList.toggle('on',STATE.is3D);
+  if(STATE.is3D){
+    $('#map').style.display='none'; $('#globe').style.display='block';
+    if(!STATE.globe){ toast('3D küre yükleniyor…','','🌍',3000);
+      try{ if(typeof Globe==='undefined')await loadScript('https://unpkg.com/globe.gl'); initGlobe(); }
+      catch(e){ toast('3D küre kütüphanesi yüklenemedi (ağ).','warn','🌍'); STATE.is3D=false; $('#globe').style.display='none'; $('#map').style.display='block'; $('#btn-globe').classList.remove('on'); return; } }
+    updateGlobe();
+  } else { $('#globe').style.display='none'; $('#map').style.display='block'; setTimeout(()=>STATE.map.invalidateSize(),50); }
+}
+function initGlobe(){
+  STATE.globe=Globe()(document.getElementById('globe'))
+    .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-dark.jpg')
+    .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
+    .backgroundImageUrl('https://unpkg.com/three-globe/example/img/night-sky.png')
+    .backgroundColor('#05070d').showAtmosphere(true).atmosphereColor('#38bdf8').atmosphereAltitude(.18)
+    .pointLat('lat').pointLng('lon').pointColor('color').pointAltitude('alt').pointRadius(.25).pointLabel('label')
+    .ringLat('lat').ringLng('lon').ringColor(()=>t=>`rgba(239,68,68,${1-t})`).ringMaxRadius('r').ringPropagationSpeed(3).ringRepeatPeriod(700)
+    .onPointClick(p=>{const ev=STATE.events.find(e=>e.id===p.id);if(ev){toggle3D();showEventDetail(ev);}});
+  const w=()=>{if(STATE.is3D){STATE.globe.width(window.innerWidth).height(window.innerHeight);}};w();window.addEventListener('resize',w);
+}
+function updateGlobe(){ if(!STATE.globe)return;
+  const evs=EVENT_LAYER_KEYS.filter(layerOn).flatMap(k=>STATE.byType[k]||[]).filter(passesTime)
+    .concat(layerOn('sat')?(STATE.byType.sat||[]):[]);
+  const pts=evs.map(e=>({id:e.id,lat:e.lat,lon:e.lon,color:(TYPE_META[e.type]||{c:'#38bdf8'}).c,alt:e.type==='sat'?.32:.01,label:e.title}));
+  STATE.globe.pointsData(pts);
+  STATE.globe.ringsData((STATE.byType.quake||[]).filter(q=>q.mag>=5&&passesTime(q)).map(q=>({lat:q.lat,lon:q.lon,r:q.mag})));
+}
+
+/* ============================================================
+   🪐 GEZEGEN KEŞİF HARİTASI  (NASA · gerçek veri)
+   ============================================================ */
+const PLANETS=[
+ {k:'sun',n:'☀️ Güneş',img:'https://upload.wikimedia.org/wikipedia/commons/b/b4/The_Sun_by_the_Atmospheric_Imaging_Assembly_of_NASA%27s_Solar_Dynamics_Observatory_-_20100819.jpg',facts:[['Tür','Yıldız (G2V)'],['Yüzey','~5.500 °C'],['Uzaklık','1 AU (8 ışık-dk)'],['Canlı','NASA SDO 6 dalga boyu']]},
+ {k:'mercury',n:'⚪ Merkür',img:'https://upload.wikimedia.org/wikipedia/commons/3/30/Mercury_in_color_-_Prockter07-edit1.jpg',facts:[['Uzaklık (Güneş)','0.39 AU'],['Gün','176 Dünya günü'],['Ay sayısı','0'],['Çap','4.879 km']]},
+ {k:'venus',n:'🟡 Venüs',img:'https://upload.wikimedia.org/wikipedia/commons/e/e5/Venus-real_color.jpg',facts:[['Uzaklık','0.72 AU'],['Yüzey','~465 °C'],['Ay sayısı','0'],['Atmosfer','CO₂, 92 bar']]},
+ {k:'moon',n:'🌙 Ay',img:'https://upload.wikimedia.org/wikipedia/commons/e/e1/FullMoon2010.jpg',facts:[['Uzaklık (Dünya)','384.400 km'],['Evre','canlı hesaplanır'],['Yerçekimi','1/6 Dünya'],['İniş','Apollo 11–17']]},
+ {k:'mars',n:'🔴 Mars',img:'https://upload.wikimedia.org/wikipedia/commons/0/02/OSIRIS_Mars_true_color.jpg',facts:[['Uzaklık','1.52 AU'],['Gün','24.6 saat'],['Ay sayısı','2 (Phobos, Deimos)'],['Rover','Perseverance & Curiosity']]},
+ {k:'jupiter',n:'🟠 Jüpiter',img:'https://upload.wikimedia.org/wikipedia/commons/2/2b/Jupiter_and_its_shrunken_Great_Red_Spot.jpg',facts:[['Uzaklık','5.2 AU'],['Tür','Gaz devi'],['Ay sayısı','95+'],['Büyük Kırmızı Leke','dev fırtına']]},
+ {k:'saturn',n:'🪐 Satürn',img:'https://upload.wikimedia.org/wikipedia/commons/c/c7/Saturn_during_Equinox.jpg',facts:[['Uzaklık','9.5 AU'],['Halkalar','buz + kaya'],['Ay sayısı','146+'],['Yoğunluk','sudan az']]},
+ {k:'uranus',n:'🔵 Uranüs',img:'https://upload.wikimedia.org/wikipedia/commons/3/3d/Uranus2.jpg',facts:[['Uzaklık','19.2 AU'],['Eksen','98° yatık'],['Ay sayısı','28'],['Renk','metan mavisi']]},
+ {k:'neptune',n:'🔵 Neptün',img:'https://upload.wikimedia.org/wikipedia/commons/5/56/Neptune_Full.jpg',facts:[['Uzaklık','30 AU'],['Rüzgâr','2.100 km/s'],['Ay sayısı','16'],['Keşif','1846 (matematikle)']]},
+];
+const NASA_KEY='DEMO_KEY';
+function openPlanet(){ $('#planet').classList.add('on'); $('#btn-planet').classList.add('on');
+  const p=$('#planet'); p.innerHTML=`<div class="planet-nav" id="pl-nav">${PLANETS.map((x,i)=>`<div class="pl-chip${i===4?' on':''}" data-k="${x.k}">${x.n}</div>`).join('')}<div class="pl-chip" data-k="_close" style="margin-left:auto">✕ Kapat</div></div><div class="pl-content" id="pl-content"></div>`;
+  $$('#pl-nav .pl-chip').forEach(c=>c.addEventListener('click',()=>{ if(c.dataset.k==='_close'){closePlanet();return;} $$('#pl-nav .pl-chip').forEach(x=>x.classList.remove('on')); c.classList.add('on'); planetShow(c.dataset.k); }));
+  loadAPOD(); planetShow('mars');
+}
+function closePlanet(){ $('#planet').classList.remove('on'); $('#btn-planet').classList.remove('on'); }
+async function loadAPOD(){
+  const host=$('#pl-content'); const box=el('div','pl-card'); box.id='apod'; box.innerHTML='<div class="spin"></div>'; host.prepend(box);
+  try{ const d=await fetchJSON(`https://api.nasa.gov/planetary/apod?api_key=${NASA_KEY}`);
+    box.innerHTML=`<h2>🔭 Günün NASA Görüntüsü</h2><div style="color:var(--muted);font-size:12px">${esc(d.title)} · ${d.date}</div>
+      ${d.media_type==='image'?`<img src="${d.url}" alt="">`:`<a class="btn" href="${d.url}" target="_blank">▶ Videoyu aç</a>`}
+      <p style="font-size:12.5px;color:var(--muted);line-height:1.6">${esc((d.explanation||'').slice(0,400))}…</p>
+      <button class="btn" onclick="translateAPOD(this)" data-t="${esc(d.explanation||'')}">🌐 Türkçe çevir (AI)</button><div class="apod-tr"></div>`;
+  }catch(e){ box.innerHTML='<div class="note">Günün NASA görüntüsü alınamadı (ağ).</div>'; }
+}
+window.translateAPOD=function(btn){ const out=btn.nextElementSibling; aiInto(out,`Şu NASA metnini akıcı Türkçe\'ye çevir:\n${btn.dataset.t.slice(0,700)}`,'Sen bir çevirmensin. Sadece Türkçe çeviriyi ver.','Çeviri'); };
+async function planetShow(k){
+  const host=$('#pl-content'); [...host.querySelectorAll('.pl-body')].forEach(n=>n.remove());
+  const P=PLANETS.find(x=>x.k===k); const wrap=el('div','pl-body');
+  wrap.innerHTML=`<div class="pl-card"><h2>${P.n}</h2><img src="${P.img}" alt="" onerror="this.style.display='none'">
+    <div class="pl-grid">${P.facts.map(f=>`<div class="pl-stat"><small>${f[0]}</small><b>${f[1]}</b></div>`).join('')}</div>
+    <div id="pl-extra" style="margin-top:12px"></div></div>`;
+  host.appendChild(wrap);
+  if(k==='mars')loadMars();
+  if(k==='moon')showMoonPhase();
+}
+async function loadMars(){
+  const box=$('#pl-extra'); box.innerHTML='<b style="font-size:13px">📷 Bugünün Mars fotoğrafları (Perseverance)</b><div class="spin"></div>';
+  try{ const d=await fetchJSON(`https://api.nasa.gov/mars-photos/api/v1/rovers/perseverance/latest_photos?api_key=${NASA_KEY}`);
+    const ph=(d.latest_photos||[]).slice(0,6);
+    box.innerHTML='<b style="font-size:13px">📷 Perseverance · en son çekimler</b><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">'+
+      (ph.length?ph.map(p=>`<a href="${p.img_src}" target="_blank"><img src="${p.img_src}" style="width:100%;border-radius:10px;border:1px solid var(--line)"></a>`).join(''):'<div class="note">Bugün için yeni foto yok.</div>')+'</div>';
+  }catch(e){ box.innerHTML='<div class="note">Mars fotoğrafları alınamadı (NASA API limiti). Kendi NASA anahtarınızı ekleyerek limiti artırabilirsiniz.</div>'; }
+}
+function showMoonPhase(){
+  const box=$('#pl-extra'); const now=new Date(); const lp=2551443, np=new Date(2000,0,6,18,14).getTime();
+  const phase=((now.getTime()-np)/1000%lp)/lp; const names=['🌑 Yeni Ay','🌒 Hilal','🌓 İlk Dördün','🌔 Şişkin','🌕 Dolunay','🌖 Şişkin','🌗 Son Dördün','🌘 Hilal'];
+  box.innerHTML=`<div class="note">Canlı ay evresi: <b style="color:var(--text)">${names[Math.floor(phase*8)%8]}</b> · %${Math.round((1-Math.abs(0.5-phase)*2)*100)} aydınlık</div>`;
+}
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+function switchTab(name){ $$('.tab').forEach(t=>t.classList.toggle('on',t.dataset.tab===name)); $('#tab-layers').classList.toggle('hidden',name!=='layers'); $('#tab-feed').classList.toggle('hidden',name!=='feed'); if(name==='feed')renderFeed(); }
+async function refreshAll(){ const jobs=[loadQuakes()]; ['flight','sat','aurora','volcano','fire','storm'].forEach(k=>{ if(layerOn(k)&&LOADERS[k]) jobs.push(LOADERS[k]()); }); await Promise.allSettled(jobs); if(STATE.is3D)updateGlobe(); STATE.lastUpdate=Date.now(); }
+function boot(){
+  initMap(); buildLayerUI(); initTimeTravel();
+  // top bar + fabs
+  $('#btn-globe').onclick=toggle3D; $('#btn-planet').onclick=openPlanet; $('#btn-ai').onclick=aiPanel; $('#btn-settings').onclick=settingsPanel;
+  $('#fab-ai').onclick=aiPanel; $('#fab-crisis').onclick=crisisAuto; $('#fab-nearby').onclick=nearbyRisks; $('#fab-brief').onclick=morningBrief;
+  $('#rp-close').onclick=()=>$('#rightpanel').classList.remove('open');
+  $$('.tab').forEach(t=>t.onclick=()=>switchTab(t.dataset.tab));
+  $('#search').addEventListener('keydown',e=>{ if(e.key==='Enter'){runSearch(e.target.value);e.target.blur();} });
+  // notifications
+  if('Notification'in window&&Notification.permission==='default'){ setTimeout(()=>Notification.requestPermission().catch(()=>{}),3000); }
+  // first load + loop
+  loadQuakes(); loadEONET();
+  setInterval(refreshAll,CFG.refreshMs);
+  toast('MAKİNA · Pro hazır — sağ tıkla bölge brifingi al','ok','🛰️',5000);
+  console.log('%cMAKİNA · PRO','color:#38bdf8;font-size:20px;font-weight:800');
+}
+document.addEventListener('DOMContentLoaded',boot);
+if(document.readyState!=='loading')boot();
+</script>
+</body>
+</html>
+</body>
+</html>
